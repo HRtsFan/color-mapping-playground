@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Mapping & Quantization Playground</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --accent: #3b82f6;
+        }
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+        .card {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .control-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        select, input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #475569;
+            background-color: #0f172a;
+            color: white;
+            box-sizing: border-box;
+        }
+        .workspace {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .canvas-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 600px) {
+            .canvas-container { grid-template-columns: 1fr; }
+        }
+        .canvas-box {
+            text-align: center;
+        }
+        canvas {
+            max-width: 100%;
+            border-radius: 8px;
+            background-color: #000;
+            margin-top: 8px;
+        }
+        .stats {
+            background: #0f172a;
+            padding: 12px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 13px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Bit-Depth & Color Mapping Playground</h1>
+        <p>Test how mathematical channel allocations impact image quantization</p>
+    </header>
+
+    <div class="grid">
+        <!-- Controls Sidebar -->
+        <div class="card">
+            <div class="control-group">
+                <label for="imageSelect">1. Choose Source Media</label>
+                <select id="imageSelect">
+                    <option value="gradient">Rainbow Gradient (Built-in)</option>
+                    <option value="upload">Upload Custom Photo...</option>
+                </select>
+            </div>
+
+            <div class="control-group" id="uploadGroup" style="display:none;">
+                <label for="imageLoader">Upload File</label>
+                <input type="file" id="imageLoader" accept="image/*">
+            </div>
+
+            <div class="control-group">
+                <label for="mappingPreset">2. Target Color Map</label>
+                <select id="mappingPreset">
+                    <option value="332">8-Bit [3-3-2] (256 Colors)</option>
+                    <option value="444">12-Bit [4-4-4] (4,096 Colors)</option>
+                    <option value="333">9-Bit [3-3-3] (512 Colors)</option>
+                    <option value="222">6-Bit [2-2-2] (64 Colors)</option>
+                    <option value="111">3-Bit [1-1-1] (8 Colors)</option>
+                </select>
+            </div>
+            
+            <div class="stats" id="mathDetails">
+                Loading specifications...
+            </div>
+        </div>
+
+        <!-- Output Workspace -->
+        <div class="workspace card">
+            <div class="canvas-container">
+                <div class="canvas-box">
+                    <strong>Original Image (24-bit True Color)</strong>
+                    <canvas id="canvasOrig"></canvas>
+                </div>
+                <div class="canvas-box">
+                    <strong>Mapped / Quantized Output</strong>
+                    <canvas id="canvasMapped"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const imageSelect = document.getElementById('imageSelect');
+    const uploadGroup = document.getElementById('uploadGroup');
+    const imageLoader = document.getElementById('imageLoader');
+    const mappingPreset = document.getElementById('mappingPreset');
+    const mathDetails = document.getElementById('mathDetails');
+
+    const canvasOrig = document.getElementById('canvasOrig');
+    const canvasMapped = document.getElementById('canvasMapped');
+    const ctxOrig = canvasOrig.getContext('2d');
+    const ctxMapped = canvasMapped.getContext('2d');
+
+    let currentImage = new Image();
+
+    // Mapping configurations [Red Bits, Green Bits, Blue Bits]
+    const presets = {
+        '332': { r: 3, g: 3, b: 2, name: '8-Bit [3-3-2] Truecolor', total: 256 },
+        '444': { r: 4, g: 4, b: 4, name: '12-Bit [4-4-4]', total: 4096 },
+        '333': { r: 3, g: 3, b: 3, name: '9-Bit [3-3-3]', total: 512 },
+        '222': { r: 2, g: 2, b: 2, name: '6-Bit [2-2-2]', total: 64 },
+        '111': { r: 1, g: 1, b: 1, name: '3-Bit [1-1-1]', total: 8 }
+    };
+
+    function generateDefaultGradient() {
+        canvasOrig.width = 400;
+        canvasOrig.height = 300;
+        
+        // Render a complex multi-color linear spectrum gradient to test transitions
+        let grad = ctxOrig.createLinearGradient(0, 0, canvasOrig.width, canvasOrig.height);
+        grad.addColorStop(0, 'red');
+        grad.addColorStop(0.2, 'yellow');
+        grad.addColorStop(0.4, 'green');
+        grad.addColorStop(0.6, 'cyan');
+        grad.addColorStop(0.8, 'blue');
+        grad.addColorStop(1, 'magenta');
+        
+        ctxOrig.fillStyle = grad;
+        ctxOrig.fillRect(0, 0, canvasOrig.width, canvasOrig.height);
+        
+        applyColorMap();
+    }
+
+    function processQuantization(val, bits) {
+        // Find how many continuous levels this bit allocation allows
+        let levels = Math.pow(2, bits);
+        // Map native 0-255 depth onto the discrete channel intervals
+        let step = 255 / (levels - 1);
+        let bucket = Math.round(val / step);
+        return Math.round(bucket * step);
+    }
+
+    function applyColorMap() {
+        const presetKey = mappingPreset.value;
+        const cfg = presets[presetKey];
+        
+        // Dynamic Technical Text
+        mathDetails.innerHTML = `
+            <strong>Map Profile:</strong> ${cfg.name}<br>
+            <strong>Max Rainbow Colors:</strong> ${cfg.total.toLocaleString()}<br><br>
+            <strong>Math Breakdown:</strong><br>
+            Red Step Levels: ${Math.pow(2, cfg.r)}<br>
+            Green Step Levels: ${Math.pow(2, cfg.g)}<br>
+            Blue Step Levels: ${Math.pow(2, cfg.b)}
+        `;
+
+        canvasMapped.width = canvasOrig.width;
+        canvasMapped.height = canvasOrig.height;
+
+        let imgData = ctxOrig.getImageData(0, 0, canvasOrig.width, canvasOrig.height);
+        let data = imgData.data;
+
+        // Loop over individual RGB chunks (skipping index 3 which is Alpha transparent data)
+        for (let i = 0; i < data.length; i += 4) {
+            data[i]     = processQuantization(data[i], cfg.r);     // Red
+            data[i + 1] = processQuantization(data[i + 1], cfg.g); // Green
+            data[i + 2] = processQuantization(data[i + 2], cfg.b); // Blue
+        }
+
+        ctxMapped.putImageData(imgData, 0, 0);
+    }
+
+    // Event Handlers
+    imageSelect.addEventListener('change', (e) => {
+        if (e.target.value === 'upload') {
+            uploadGroup.style.display = 'block';
+        } else {
+            uploadGroup.style.display = 'none';
+            generateDefaultGradient();
+        }
+    });
+
+    imageLoader.addEventListener('change', (e) => {
+        let reader = new FileReader();
+        reader.onload = function(event){
+            currentImage.onload = function(){
+                // Constraint scale handling to protect browser thread loop limits
+                let maxW = 500;
+                let scale = Math.min(1, maxW / currentImage.width);
+                canvasOrig.width = currentImage.width * scale;
+                canvasOrig.height = currentImage.height * scale;
+                
+                ctxOrig.drawImage(currentImage, 0, 0, canvasOrig.width, canvasOrig.height);
+                applyColorMap();
+            }
+            currentImage.src = event.target.result;
+        }
+        if(e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
+    });
+
+    mappingPreset.addEventListener('change', applyColorMap);
+
+    // Bootstrap app
+    window.onload = generateDefaultGradient;
+</script>
+</body>
+</html>
