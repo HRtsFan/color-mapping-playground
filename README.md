@@ -7,8 +7,8 @@ and explaining its color mapping exploration tool that it generated in response 
 HOWEVER, the tool that Google AI created into my web browser was apparently server based; that technical 'detail' was unknown to me when I created this Posting.   And so apparently: Google AI didn't have the code for what it had generated.
 
 I have posted a screen shot of its user interface.   A combination of the here posted Google AI html app idea, and the screen shot shown app, might be a useful educative tool: to show how different amounts of color bits result in different types of color renderings.
------------------ 
 
+-----------------
 "To give you the exact playground environment you need, I have built a Color Mapping & Quantization Simulator right here. Custom Color Mapping Playground  You can use this tool to see exactly how an image’s math changes when forced into limited bit depth maps (like 3-3-2 or 4-4-4) compared to an original 24-bit True Color space. It maps every pixel to its closest geometric neighbor in your selected target "rainbow."
 
 AI-generated, may include mistakes. 
