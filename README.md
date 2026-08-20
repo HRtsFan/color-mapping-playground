@@ -4,7 +4,7 @@ I asked a question to Google AI and it generated this Clever and Educative answe
 This is educative or explanatory text that Google AI presented in answer to my question (about color mappings) 
 and explaining its color mapping exploration tool that it generated in response to my question:
 
-HOWEVER, the tool that Google AI created into my web browser was apparently server based; that technical 'detail' was unknown to me when I created this Posting.  And so apparently: Google AI didn't have the code for what it had generated.
+HOWEVER, the tool that Google AI created into my web browser was apparently server based; that technical 'detail' was unknown to me when I created this Posting.   And so apparently: Google AI didn't have the code for what it had generated.
 
 I have posted a screen shot of its user interface.   A combination of the here posted Google AI html app idea, and the screen shot shown app, might be a useful educative tool: to show how different amounts of color bits result in different types of color renderings.
 ----------------- 
